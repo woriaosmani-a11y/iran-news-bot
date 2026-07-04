@@ -79,10 +79,14 @@ def main():
             if first_run:
                 continue
 
-            total_new += 1
-
             title = entry.get("title", "بدون عنوان")
             link = entry.get("link", "")
+
+            # Skip YouTube results
+            if "youtube.com" in link or "youtu.be" in link:
+                continue
+
+            total_new += 1
 
             message = f"<b>{feed_title}</b>\n{title}\n{link}"
             send_telegram_message(message)
