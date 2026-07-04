@@ -7,8 +7,8 @@ import requests
 FEEDS_FILE = "feeds.txt"
 SEEN_FILE = "seen_ids.json"
 
-BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
-CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
+BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"].strip()
+CHAT_ID = os.environ["TELEGRAM_CHAT_ID"].strip()
 
 TELEGRAM_API = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
@@ -26,7 +26,6 @@ def load_seen():
 
 
 def save_seen(seen_ids):
-    # Keep the file from growing forever: cap at last 5000 IDs
     ids_list = list(seen_ids)[-5000:]
     with open(SEEN_FILE, "w", encoding="utf-8") as f:
         json.dump(ids_list, f, ensure_ascii=False)
@@ -55,7 +54,6 @@ def main():
     seen_ids = load_seen()
     new_seen_ids = set(seen_ids)
 
-    # First run ever: don't spam with all historical items, just mark them seen.
     first_run = not os.path.exists(SEEN_FILE)
 
     total_new = 0
@@ -79,7 +77,7 @@ def main():
             new_seen_ids.add(entry_id)
 
             if first_run:
-                continue  # just mark as seen, don't send on the very first run
+                continue
 
             total_new += 1
 
@@ -88,7 +86,7 @@ def main():
 
             message = f"<b>{feed_title}</b>\n{title}\n{link}"
             send_telegram_message(message)
-            time.sleep(0.5)  # avoid hitting Telegram rate limits
+            time.sleep(0.5)
 
     save_seen(new_seen_ids)
     print(f"Done. {total_new} new item(s) sent.")
