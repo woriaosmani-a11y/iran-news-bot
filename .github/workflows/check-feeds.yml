@@ -1,0 +1,38 @@
+name: Check RSS Feeds
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  check-feeds:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run feed checker
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python check_feeds.py
+
+      - name: Commit updated seen_ids.json
+        run: |
+          git config user.name "iran-news-bot"
+          git config user.email "actions@github.com"
+          git add seen_ids.json
+          git diff --quiet --cached || git commit -m "Update seen IDs [skip ci]"
+          git push
