@@ -1,15 +1,18 @@
 import os
 import json
 import time
+import calendar
 import feedparser
 import requests
 
 FEEDS_FILE = "feeds.txt"
 SEEN_FILE = "seen_ids.json"
 
+# فقط خبرهایی که در این بازه زمانی (به دقیقه) منتشر شده‌اند ارسال می‌شوند
+MAX_AGE_MINUTES = 60
+
 BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"].strip()
 CHAT_ID = os.environ["TELEGRAM_CHAT_ID"].strip()
-
 TELEGRAM_API = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
 
@@ -49,13 +52,27 @@ def send_telegram_message(text):
         print(f"Failed to send Telegram message: {e}")
 
 
+def get_entry_age_minutes(entry):
+    """
+    Returns how many minutes ago this entry was published,
+    or None if no valid published/updated time is found.
+    """
+    time_struct = entry.get("published_parsed") or entry.get("updated_parsed")
+    if not time_struct:
+        return None
+    try:
+        published_ts = calendar.timegm(time_struct)  # feedparser gives UTC struct_time
+        now_ts = time.time()
+        return (now_ts - published_ts) / 60.0
+    except Exception:
+        return None
+
+
 def main():
     feeds = load_feeds()
     seen_ids = load_seen()
     new_seen_ids = set(seen_ids)
-
     first_run = not os.path.exists(SEEN_FILE)
-
     total_new = 0
 
     for feed_url in feeds:
@@ -79,6 +96,13 @@ def main():
             if first_run:
                 continue
 
+            # --- فیلتر برکینگ نیوز: رد کردن خبرهای قدیمی ---
+            age_minutes = get_entry_age_minutes(entry)
+            if age_minutes is not None and age_minutes > MAX_AGE_MINUTES:
+                continue
+            # اگر تاریخ در فید موجود نبود (age_minutes is None)، خبر را
+            # همچنان جدید در نظر می‌گیریم چون نمی‌دانیم چقدر قدیمی است.
+
             title = entry.get("title", "بدون عنوان")
             link = entry.get("link", "")
 
@@ -87,7 +111,6 @@ def main():
                 continue
 
             total_new += 1
-
             message = f"<b>{feed_title}</b>\n{title}\n{link}"
             send_telegram_message(message)
             time.sleep(0.5)
